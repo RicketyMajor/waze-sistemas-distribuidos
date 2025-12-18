@@ -20,3 +20,10 @@ Thumbs.db
 *.json
 !modelo_datos.json
 __pycache__/
+
+postgres_data/
+mongo_data/
+__pycache__/
+*.pyc
+.env
+venv/
