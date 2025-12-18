@@ -1,0 +1,13 @@
+{
+  "event_uuid": "12345-abcde-67890",       
+  "waze_uuid": "23423424",                 
+  "timestamp_scraped": "2023-10-27T10:00:00Z", 
+  "location": {                            
+    "type": "Point",
+    "coordinates": [-70.6483, -33.4489]  
+    },  
+  "type": "JAM",                          
+  "description": "Atasco suave en Alameda",
+  "speed_kmh": 15,                         
+  "street": "Av. Libertador Bernardo O'Higgins"
+}
