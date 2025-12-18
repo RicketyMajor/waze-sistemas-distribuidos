@@ -103,6 +103,25 @@ class WazePostgresClient:
             print(f"Error insertando: {e}")
             return False
 
+    def get_simulation_seeds(self, limit=100):
+        """
+        Recupera un lote de coordenadas reales y IDs para usarlos como 
+        semilla en el generador de tráfico.
+        """
+        try:
+            with self.conn.cursor() as cur:
+                # Obtenemos IDs y coordenadas de eventos reales
+                cur.execute("""
+                    SELECT waze_uuid, ST_X(location) as lon, ST_Y(location) as lat 
+                    FROM traffic_events 
+                    ORDER BY RANDOM() 
+                    LIMIT %s;
+                """, (limit,))
+                return cur.fetchall()  # Retorna lista de tuplas [(uuid, lon, lat), ...]
+        except Exception as e:
+            print(f"Error obteniendo semillas: {e}")
+            return []
+
     def count_events(self):
         with self.conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM traffic_events;")

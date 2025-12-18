@@ -26,3 +26,14 @@ services:
       - "5050:80"
     depends_on:
       - db
+      
+  cache:
+    image: redis:7.0
+    container_name: waze_cache
+    restart: always
+    ports:
+      - "6379:6379"
+    # Configuración CLAVE para el informe:
+    # Limitamos la memoria a solo 2mb para FORZAR que se llene rápido y empiece a borrar claves.
+    # Usamos 'allkeys-lru' como política inicial (Least Recently Used).
+    command: ["redis-server", "--maxmemory", "2mb", "--maxmemory-policy", "allkeys-lru"]
