@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # 1. Base de Datos
   db:
     image: postgis/postgis:15-3.3
     container_name: waze_postgres
@@ -13,8 +14,13 @@ services:
       - "5432:5432"
     volumes:
       - ./postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U waze_user -d waze_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
-  # PgAdmin: Interfaz visual para ver la BD (como Mongo Express pero para SQL)
+  # 2. Panel Admin SQL
   pgadmin:
     image: dpage/pgadmin4
     container_name: waze_admin_sql
@@ -26,14 +32,27 @@ services:
       - "5050:80"
     depends_on:
       - db
-      
+
+  # 3. Cache Redis
   cache:
     image: redis:7.0
     container_name: waze_cache
     restart: always
     ports:
       - "6379:6379"
-    # Configuración CLAVE para el informe:
-    # Limitamos la memoria a solo 2mb para FORZAR que se llene rápido y empiece a borrar claves.
-    # Usamos 'allkeys-lru' como política inicial (Least Recently Used).
     command: ["redis-server", "--maxmemory", "2mb", "--maxmemory-policy", "allkeys-lru"]
+
+  # 4. Generador de Tráfico (Tu Código Python en Docker)
+  traffic-app:
+    build: .
+    container_name: waze_traffic_generator
+    depends_on:
+      db:
+        condition: service_healthy
+      cache:
+        condition: service_started
+    environment:
+      - DB_HOST=db       # Nombre del servicio de arriba
+      - REDIS_HOST=cache # Nombre del servicio de arriba
+    # Comando para ejecutar el generador automáticamente
+    command: python -m traffic_generator.generator

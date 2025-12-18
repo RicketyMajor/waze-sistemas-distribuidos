@@ -4,7 +4,7 @@ import psycopg2
 from psycopg2.extras import Json
 
 # Configuración
-DB_HOST = "localhost"
+DB_HOST = os.getenv('DB_HOST', 'localhost')
 DB_NAME = "waze_db"
 DB_USER = "waze_user"
 DB_PASS = "waze_password"

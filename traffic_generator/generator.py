@@ -8,7 +8,7 @@ class TrafficGenerator:
     def __init__(self):
         print("Inicializando Generador de Tráfico...")
         # Aumentamos el límite para tener variedad
-        self.seeds = pg_manager.get_simulation_seeds(limit=1000)
+        self.seeds = pg_manager.get_simulation_seeds(limit=50)
 
         if not self.seeds:
             print("ADVERTENCIA: No hay datos en la BD para simular.")
@@ -72,9 +72,9 @@ if __name__ == "__main__":
     gen = TrafficGenerator()
     if gen.seeds:
         # Fase 1: Tráfico Normal
-        gen.start_poisson_mode(duration_seconds=10, lambd=10)
+        gen.start_poisson_mode(duration_seconds=20, lambd=10)
 
         time.sleep(1)
 
         # Fase 2: Tráfico Intenso (Aquí verás muchos HITs)
-        gen.start_burst_mode(duration_seconds=5, intensity=0.005)
+        gen.start_burst_mode(duration_seconds=10, intensity=0.005)
