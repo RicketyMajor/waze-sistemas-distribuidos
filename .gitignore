@@ -14,3 +14,9 @@ Thumbs.db
 
 # Logs
 *.log
+
+*.deb
+*.png
+*.json
+!modelo_datos.json
+__pycache__/
