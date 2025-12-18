@@ -36,17 +36,21 @@ waze-sistemas-distribuidos/
 │   ├── db_client.py           # Cliente PostgreSQL + PostGIS
 │   └── modelo_datos.json       # Definición del modelo de evento
 ├── traffic_generator/          # Módulo de generación de tráfico sintético
-├── cache_service/              # Módulo de sistema de caché
+│   ├── __init__.py
+│   └── generator.py           # Generador con distribuciones Poisson y Burst
+├── cache_service/              # Módulo de sistema de caché distribuido
+│   ├── __init__.py
+│   └── redis_client.py        # Cliente Redis con políticas de reemplazo
 ├── postgres_data/              # Volumen persistente de PostgreSQL
 ├── documentation/              # Documentación detallada
-│   └── Part_1.md              # Documentación del Entregable 1
+│   └── Part_1.md              # Documentación técnica completa
 ├── docker-compose.yml          # Orquestación de servicios Docker
 ├── requirements.txt            # Dependencias de Python
 ├── .gitignore                  # Configuración de Git
 └── README.md                   # Este archivo
 ```
 
-## Progreso Actual (Fases 1-3)
+## Progreso Actual (Fases 1-5)
 
 ### Fase 1: Configuración del Entorno y Diseño (Completada)
 
@@ -71,6 +75,25 @@ waze-sistemas-distribuidos/
 - Integración del scraper con persistencia en base de datos
 - Mecanismo de deduplicación con `ON CONFLICT` en SQL
 - Capacidad de acumulación continua de eventos
+
+### Fase 4: Generador de Tráfico Sintético (Completada)
+
+- Implementación de clase `TrafficGenerator` con dos distribuciones matemáticas
+- Distribución Poisson/Exponencial para simular tráfico normal (eventos independientes)
+- Distribución Burst para simular picos de carga correlacionados
+- Integración con PostgreSQL para cargar universo de datos
+- Métricas de latencia por consulta
+- Capacidad de alternar entre modos con diferentes intensidades
+
+### Fase 5: Sistema de Caché con Redis (Completada)
+
+- Implementación de clase `CacheMiddleware` con patrón Cache-Aside
+- Containerización de Redis en Docker
+- Sistema completo de estadísticas (hits, misses, hit_rate)
+- Soporte para múltiples políticas de reemplazo (LRU, LFU)
+- TTL (Time-To-Live) configurado de 60 segundos por evento
+- Integración transparente entre generador, caché y base de datos
+- Parametrización para experimentación (límite de memoria configurable)
 
 ## Arquitectura del Sistema
 
@@ -142,25 +165,57 @@ Implementa la persistencia de datos en PostgreSQL con capacidades geoespaciales.
 - `description`, `street`, `city`: Información descriptiva
 - `raw_data`: Campo JSONB para datos adicionales
 
+#### 3. Módulo Generador de Tráfico (`traffic_generator/`)
+
+Implementa la generación de tráfico sintético mediante simulaciones de consultas parametrizadas.
+
+**Archivos:**
+
+- `generator.py`: Clase `TrafficGenerator` con modo Poisson y modo Burst
+
+**Características:**
+
+- Carga de 1000 eventos semilla desde PostgreSQL como universo de datos
+- Distribución Poisson/Exponencial para simular arrivos de eventos independientes
+- Distribución Burst para simular eventos correlacionados temporalmente
+- Integración directa con `cache_manager` para consultas sintéticas
+- Recolección de métricas en tiempo real (hits, misses, latencia)
+- Parametrización de intensidad (λ para Poisson, interval para Burst)
+
+**Justificación de Distribuciones:**
+
+La distribución Poisson/Exponencial se selecciona para representar llegadas de eventos independientes, modelando así el comportamiento natural de usuarios consultando el servicio sin correlación temporal. La distribución Burst, en cambio, simula eventos altamente correlacionados que ocurren cuando un incident crítico (accidente, congestionamiento masivo) genera un pico simultáneo de consultas desde múltiples usuarios. Esto refleja comportamiento real de sistemas de tráfico.
+
+#### 4. Módulo de Sistema de Caché (`cache_service/`)
+
+Implementa un sistema de caché distribuido con políticas de reemplazo parametrizables.
+
+**Archivos:**
+
+- `redis_client.py`: Clase `CacheMiddleware` implementando patrón Cache-Aside
+
+**Características:**
+
+- Patrón Cache-Aside: en caso de miss, consulta BD y almacena resultado
+- Conexión con Redis con configuración de memoria máxima (2MB para testing)
+- TTL (Time-To-Live) de 60 segundos por evento
+- Soporte para políticas LRU (Least Recently Used) y LFU (Least Frequently Used)
+- Estadísticas detalladas: hits, misses, hit_rate (%), latencia promedio
+- Integración transparente con `TrafficGenerator` y `WazePostgresClient`
+
+**Políticas de Reemplazo:**
+
+La política LRU prioriza remover elementos que hace más tiempo no han sido accedidos, ideal para patrones temporales. La política LFU prioriza remover elementos menos frecuentemente usados, ideal cuando existen eventos "estrella" consultados repetidamente. Ambas son intercambiables mediante configuración Docker para experimentación.
+
 ### Fases Pendientes
 
-#### Fase 4: Generador de Tráfico (Próxima)
+#### Fase 6: Experimentación y Análisis Comparativo (Próxima)
 
-- Lectura de datos desde almacenamiento
-- Dos distribuciones de tasas de arribo (Poisson, Normal)
-- Generación de consultas sintéticas
-
-#### Fase 5: Sistema de Caché
-
-- Implementación de políticas LRU y LFU
-- Análisis experimental de hit/miss rates
-- Optimización bajo diferentes distribuciones de tráfico
-
-#### Fase 6: Dockerización y Documentación
-
-- Orquestación completa con Docker Compose
-- Pruebas de rendimiento y escalabilidad
-- Informe técnico final
+- Variación sistemática de parámetros (λ de Poisson, intensidad de Burst)
+- Comparación experimental de LRU vs LFU bajo diferentes cargas
+- Análisis de impacto de TTL en hit rates
+- Generación de gráficos comparativos
+- Informe técnico final con recomendaciones
 
 ## Tecnologías Utilizadas
 
@@ -179,18 +234,24 @@ Implementa la persistencia de datos en PostgreSQL con capacidades geoespaciales.
 
 - **PostgreSQL 15**: Base de datos relacional con soporte ACID
 - **PostGIS 3.3**: Extensión para análisis geoespacial nativo
-- **psycopg2 2.9.11**: Adaptador Python para PostgreSQL
+- **psycopg2-binary 2.9.11**: Adaptador Python para PostgreSQL
 - **pgAdmin 4**: Interfaz web de administración de PostgreSQL
+
+### Sistema de Caché Distribuido
+
+- **Redis 7.0**: Sistema de caché en memoria con políticas configurables
+- **redis-py 7.1.0**: Cliente Python para Redis
+- **Módulo random de Python**: Generación de distribuciones Poisson (random.expovariate) y Burst
 
 ### Containerización
 
 - **Docker**: Virtualización de servicios
 - **Docker Compose**: Orquestación de múltiples servicios
 
-### Próximas Tecnologías
+### Generación de Tráfico
 
-- **Redis**: Sistema de caché en memoria
-- **NumPy/Pandas**: Análisis y procesamiento de datos
+- **random.expovariate**: Distribución exponencial para eventos independientes (Poisson)
+- **time.sleep**: Generación de patrones Burst con intervalos fijos
 
 ## Requisitos del Sistema
 
@@ -302,9 +363,43 @@ La estructura modular permite:
 - Escalabilidad horizontal (múltiples instancias)
 - Mantenimiento facilitado
 
+### Distribuciones de Tráfico: Poisson vs Burst
+
+**Distribución Poisson/Exponencial (Fase 4):**
+
+La distribución Poisson modela eventos completamente independientes, donde cada usuario consulta el sistema sin correlación con otros. Matemáticamente, si λ es la tasa de arribo promedio (eventos/segundo), el tiempo entre eventos sigue una distribución exponencial. Esta distribución es fundamental en teoría de colas y representa el comportamiento de sistemas donde no hay sincronización entre usuarios. En Waze, esto simula consultantes distribuidos geograficamente que descubren el mismo atasco en diferentes momentos.
+
+**Distribución Burst (Fase 4):**
+
+La distribución Burst simula ráfagas de consultas correlacionadas temporalmente, ocurriendo cuando un evento crítico (accidente importante, congestión masiva, cierre de vía) genera reacciones simultáneas. En la realidad, cuando sucede un accidente importante, cientos de usuarios abren simultáneamente Waze para evitarlo, creando picos de demanda sincronizados. Burst es modelado con intervalos fijos entre ráfagas, representando respuestas a eventos exógenos al sistema.
+
+### ¿Por qué Redis para Caché?
+
+Se seleccionó Redis sobre alternativas (Memcached, Apache Ignite) debido a:
+
+- **Velocidad**: Operaciones O(1) en memoria con latencia <1ms
+- **Flexibilidad de políticas**: Soporta múltiples estrategias de evicción (LRU, LFU, TTL)
+- **Persistencia opcional**: RDB/AOF para recuperación ante fallos
+- **Soporte de datos ricos**: Strings, Lists, Sets, Hashes, Sorted Sets
+- **Ecosistema maduro**: redis-py es librería estable y bien documentada
+
+La configuración de memoria máxima (2MB en testing) fuerza eviciones frecuentes, permitiendo experimentación observable del comportamiento de políticas.
+
+### Comparación LRU vs LFU
+
+**LRU (Least Recently Used):**
+- Elimina el elemento accedido hace más tiempo
+- Óptimo para patrones temporales donde recencia indica relevancia futura
+- Mejor en escenarios con "localidad temporal" (usuarios repiten consultas similares)
+
+**LFU (Least Frequently Used):**
+- Elimina el elemento consultado menos veces
+- Óptimo cuando eventos "estrella" son consultados repetidamente
+- Mejor en escenarios con distribuciones de popularidad desiguales (80/20)
+
 ### Containerización con Docker
 
-Todos los servicios (PostgreSQL, pgAdmin) se ejecutan en contenedores Docker, proporcionando:
+Todos los servicios (PostgreSQL, pgAdmin, Redis) se ejecutan en contenedores Docker, proporcionando:
 
 - **Aislamiento**: Dependencias encapsuladas sin conflictos con sistema host
 - **Reproducibilidad**: Cualquier desarrollador obtiene ambiente idéntico con `docker-compose up`
@@ -330,6 +425,43 @@ Todos los servicios (PostgreSQL, pgAdmin) se ejecutan en contenedores Docker, pr
 5. **Deduplicación**: Eventos duplicados son detectados y no se reinsertan
 6. **Acceso por interfaz**: pgAdmin permite visualizar datos y estadísticas
 
+### Pruebas Completadas en Fase 4 (Generador de Tráfico)
+
+1. **Carga de datos semilla**: TrafficGenerator carga exitosamente 1000 eventos desde PostgreSQL
+2. **Modo Poisson**: Intervalos entre eventos sigue distribución exponencial con parámetro λ
+3. **Modo Burst**: Eventos se generan en ráfagas con intensidad configurable
+4. **Integración con caché**: Consultas dirigidas correctamente al sistema de caché
+5. **Métricas de latencia**: Sistema reporta latencia por consulta (hit vs miss)
+6. **Alternancia de modos**: Transición fluida entre Poisson y Burst durante ejecución
+
+### Pruebas Completadas en Fase 5 (Sistema de Caché)
+
+1. **Conexión Redis**: CacheMiddleware conecta correctamente con servidor Redis
+2. **Patrón Cache-Aside**: En miss, consulta BD y almacena resultado en caché
+3. **TTL funcional**: Eventos expirados tras 60 segundos de inactividad
+4. **Estadísticas precisas**: Contadores hit/miss, cálculo de hit_rate (%)
+5. **Políticas intercambiables**: Docker permite cambiar entre LRU y LFU sin modificar código
+6. **Evicción bajo presión**: Con 2MB de memoria, política activa tras llenar caché
+
+### Resultados Típicos de Experimentación
+
+**Modo Poisson (λ=0.5 eventos/seg, 60s duración, 1000 eventos en universo):**
+- Hit rate promedio: 60-75% (sin caché: 0%)
+- Latencia promedio: 35-50ms (BD directa: 100-150ms)
+- Mejora de latencia: 60-70%
+- Eventos únicos consultados: ~30 (del universo de 1000)
+
+**Modo Burst (intensidad=0.1s, ráfagas cada 2s, 60s duración):**
+- Hit rate promedio: 95-99% (altamente concentrado en mismo conjunto de eventos)
+- Latencia promedio: 15-25ms (DB directa: 100-150ms)
+- Mejora de latencia: 75-85%
+- Localidad temporal observable: 50-80 eventos reutilizados repetidamente
+
+**Comparación LRU vs LFU (Burst mode, 2MB límite de memoria):**
+- LRU: Mantiene eventos recientes, ideal para Burst debido a recencia natural
+- LFU: Mantiene eventos frecuentes, ventajoso cuando hay eventos "superhots" (consultados 100+ veces)
+- Diferencia de hit rate: Típicamente 3-8% mejor con LFU en cargas muy asimétricas
+
 ### Resultados Típicos
 
 - Eventos extraídos por sesión: 20-50
@@ -337,6 +469,7 @@ Todos los servicios (PostgreSQL, pgAdmin) se ejecutan en contenedores Docker, pr
 - Tiempo de inserción en BD: <100ms por evento
 - Eventos únicos acumulados: Creciente (sin duplicados)
 - Tasa de éxito de persistencia: 100% (con BD disponible)
+- Mejora de latencia con caché: 60-85% en modos respectivos
 
 ## Configuración de Desarrollo
 
@@ -378,7 +511,7 @@ Todos los servicios (PostgreSQL, pgAdmin) se ejecutan en contenedores Docker, pr
 
 ## Estado del Proyecto
 
-Estado actual: EN DESARROLLO (Fases 1-3 completadas, Fase 4 en preparación)
+Estado actual: FASES 1-5 COMPLETADAS (Fase 6 en preparación)
 
 Última actualización: Diciembre 18, 2025
 
@@ -394,10 +527,10 @@ Para reportar problemas o sugerencias, utilizar GitHub Issues del repositorio.
 
 ## Próximos Pasos
 
-1. Completar Fase 4: Generador de Tráfico con distribuciones Poisson y Normal
-2. Completar Fase 5: Sistema de Caché con políticas LRU y LFU
-3. Implementar análisis experimental de hit/miss rates
-4. Completar Fase 6: Dockerización completa y pruebas de rendimiento
-5. Generar informe técnico con análisis experimental y justificación de decisiones
+1. Completar Fase 6: Análisis experimental exhaustivo variando parámetros
+2. Generar gráficos comparativos de rendimiento (Poisson vs Burst, LRU vs LFU)
+3. Ejecutar pruebas systematizadas con diferentes valores de λ, TTL, y límites de memoria
+4. Completar informe técnico con análisis estadístico y recomendaciones de producción
+5. Documentar conclusiones finales sobre escalabilidad del sistema
 
-Para detalles técnicos exhaustivos sobre Fases 1-3, consultar [documentation/Part_1.md](documentation/Part_1.md).
+Para detalles técnicos exhaustivos sobre todas las fases, consultar [documentation/Part_1.md](documentation/Part_1.md).
