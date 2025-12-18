@@ -4,9 +4,10 @@
   "timestamp_scraped": "2023-10-27T10:00:00Z", 
   "location": {                            
     "type": "Point",
-    "coordinates": [-70.6483, -33.4489]  
-    },  
-  "type": "JAM",                          
+    "coordinates": [-70.6483, -33.4489]    
+  },
+  "type": "JAM",                           
+  "subtype": "HEAVY_JAM",                  
   "description": "Atasco suave en Alameda",
   "speed_kmh": 15,                         
   "street": "Av. Libertador Bernardo O'Higgins"
