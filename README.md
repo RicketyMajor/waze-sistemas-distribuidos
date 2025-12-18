@@ -388,11 +388,13 @@ La configuración de memoria máxima (2MB en testing) fuerza eviciones frecuente
 ### Comparación LRU vs LFU
 
 **LRU (Least Recently Used):**
+
 - Elimina el elemento accedido hace más tiempo
 - Óptimo para patrones temporales donde recencia indica relevancia futura
 - Mejor en escenarios con "localidad temporal" (usuarios repiten consultas similares)
 
 **LFU (Least Frequently Used):**
+
 - Elimina el elemento consultado menos veces
 - Óptimo cuando eventos "estrella" son consultados repetidamente
 - Mejor en escenarios con distribuciones de popularidad desiguales (80/20)
@@ -446,18 +448,21 @@ Todos los servicios (PostgreSQL, pgAdmin, Redis) se ejecutan en contenedores Doc
 ### Resultados Típicos de Experimentación
 
 **Modo Poisson (λ=0.5 eventos/seg, 60s duración, 1000 eventos en universo):**
+
 - Hit rate promedio: 60-75% (sin caché: 0%)
 - Latencia promedio: 35-50ms (BD directa: 100-150ms)
 - Mejora de latencia: 60-70%
 - Eventos únicos consultados: ~30 (del universo de 1000)
 
 **Modo Burst (intensidad=0.1s, ráfagas cada 2s, 60s duración):**
+
 - Hit rate promedio: 95-99% (altamente concentrado en mismo conjunto de eventos)
 - Latencia promedio: 15-25ms (DB directa: 100-150ms)
 - Mejora de latencia: 75-85%
 - Localidad temporal observable: 50-80 eventos reutilizados repetidamente
 
 **Comparación LRU vs LFU (Burst mode, 2MB límite de memoria):**
+
 - LRU: Mantiene eventos recientes, ideal para Burst debido a recencia natural
 - LFU: Mantiene eventos frecuentes, ventajoso cuando hay eventos "superhots" (consultados 100+ veces)
 - Diferencia de hit rate: Típicamente 3-8% mejor con LFU en cargas muy asimétricas

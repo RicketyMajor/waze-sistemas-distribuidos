@@ -407,15 +407,15 @@ class TrafficGenerator:
     def __init__(self):
         self.seeds = pg_manager.get_simulation_seeds(limit=1000)
         # Carga 1000 eventos desde PostgreSQL como "universo de datos posibles"
-    
+
     def simulate_query(self):
         # Elige un evento aleatorio del universo de datos
         # Consulta el caché
         # Si es MISS, simula inserción en caché
-    
+
     def start_poisson_mode(self, duration_seconds, lambd):
         # Distribución Poisson/Exponencial
-    
+
     def start_burst_mode(self, duration_seconds, intensity):
         # Distribución de Ráfaga (Burst)
 ```
@@ -530,7 +530,8 @@ cache:
   container_name: waze_cache
   ports:
     - "6379:6379"
-  command: ["redis-server", "--maxmemory", "2mb", "--maxmemory-policy", "allkeys-lru"]
+  command:
+    ["redis-server", "--maxmemory", "2mb", "--maxmemory-policy", "allkeys-lru"]
 ```
 
 Las configuraciones clave son:
@@ -547,15 +548,15 @@ class CacheMiddleware:
     def __init__(self):
         self.client = redis.Redis(host='localhost', port=6379, decode_responses=True)
         self.stats = {"hits": 0, "misses": 0, "total_time": 0}
-    
+
     def get_event(self, event_uuid):
         # Intenta obtener de Redis
         # Si falla (MISS), marca para inserción
         # Retorna (source, latency)
-    
+
     def save_to_cache(self, event_uuid, data_dict):
         # Guarda en Redis con TTL de 60 segundos
-    
+
     def get_metrics(self):
         # Retorna hit_rate y estadísticas
 ```
@@ -569,7 +570,7 @@ def get_event(self, event_uuid):
     start_time = time.time()
     result = None
     source = "DB"
-    
+
     # 1. Intentar obtener de Redis (HIT)
     if self.client:
         cached_data = self.client.get(event_uuid)
@@ -577,12 +578,12 @@ def get_event(self, event_uuid):
             self.stats["hits"] += 1
             result = json.loads(cached_data)
             source = "CACHE"
-    
+
     # 2. Si no está en caché (MISS), retornar indicador de lectura desde DB
     if not result:
         self.stats["misses"] += 1
         # En un sistema real, aquí harías: pg_manager.get_by_id(event_uuid)
-    
+
     elapsed = (time.time() - start_time) * 1000  # ms
     return source, elapsed
 ```
@@ -602,6 +603,7 @@ Justificación teórica: Bajo la hipótesis de localidad espacial y temporal, lo
 Implementación en Redis: `--maxmemory-policy allkeys-lru`
 
 Características:
+
 - Mantiene estadísticas de "último acceso" para cada clave
 - Bajo overhead comparado a otras políticas
 - Efectivo en muchos escenarios reales
@@ -617,6 +619,7 @@ Justificación teórica: Si algunos datos son consistentemente más populares (a
 Implementación en Redis: `--maxmemory-policy allkeys-lfu`
 
 Características:
+
 - Mayor overhead que LRU (mantiene contadores de frecuencia)
 - Mejor para cargas con "datos calientes" claramente identificables
 - Puede ser subóptimo con patrones de acceso que cambian dinámicamente
@@ -635,6 +638,7 @@ El proyecto permite cambiar fácilmente entre políticas:
 Luego reiniciar con `docker-compose restart cache` y ejecutar nuevamente el generador.
 
 **Métricas Clave a Comparar**:
+
 - Hit Rate: Porcentaje de consultas satisfechas por caché
 - Latencia promedio: Tiempo por consulta
 - Distribución de latencias: Varianza y percentiles
@@ -680,6 +684,7 @@ Redis Cache ← ← ← Generador de Tráfico
 ```
 
 Cada consulta del generador intenta optimizar su latencia:
+
 1. Consulta al caché (rápido, 1-5ms si HIT)
 2. Si MISS, fallback a PostgreSQL (lento, 50-200ms)
 3. Resultado se cachea para futuras consultas
@@ -692,6 +697,7 @@ Cada consulta del generador intenta optimizar su latencia:
 ### 8.1. Artefactos Implementados
 
 **Fase 4 - Generador de Tráfico:**
+
 - Clase `TrafficGenerator` con soporte para dos distribuciones
 - Método `start_poisson_mode()` para tráfico normal con distribución exponencial
 - Método `start_burst_mode()` para tráfico intenso correlacionado
@@ -699,6 +705,7 @@ Cada consulta del generador intenta optimizar su latencia:
 - Soporte para métrica de latencia por consulta
 
 **Fase 5 - Sistema de Caché:**
+
 - Clase `CacheMiddleware` con patrón Cache-Aside
 - Cliente Redis con conexión automática y manejo de errores
 - Implementación de TTL (Time-To-Live) de 60 segundos por evento
@@ -711,12 +718,14 @@ Cada consulta del generador intenta optimizar su latencia:
 El sistema ha sido validado mediante:
 
 1. **Ejecución de Modo Poisson**:
+
    - Tráfico normal con 10 segundos de duración
    - Hit rate típico: 60-75%
    - Latencia promedio: ~30-50ms (mezcla de hits y misses)
    - Comportamiento: Distribución aleatoria de consultas
 
 2. **Ejecución de Modo Burst**:
+
    - Tráfico intenso de 5 segundos
    - Hit rate típico: 95-99%
    - Latencia promedio: ~15-25ms (mayoría hits)
@@ -746,8 +755,6 @@ La fase final completará:
 - Análisis de resultados con gráficos de hit rate vs. tasa de llegada
 - Informe técnico documentando hallazgos y recomendaciones
 - Conclusiones sobre escalabilidad y rendimiento del sistema
-
-
 
 ## 10. Consideraciones de Diseño
 
