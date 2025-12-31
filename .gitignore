@@ -27,3 +27,6 @@ __pycache__/
 *.pyc
 .env
 venv/
+
+results/*.csv
+results/*.png

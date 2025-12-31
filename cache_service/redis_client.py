@@ -2,8 +2,6 @@ import os
 import time
 import json
 import redis
-import sys
-
 # Configuración Inteligente
 # Leemos la variable de entorno. Si no existe, avisa.
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
@@ -17,7 +15,7 @@ class CacheMiddleware:
         self.stats = {"hits": 0, "misses": 0, "total_time": 0}
 
         print(
-            f"🔌 Configuración detectada -> Host Redis: '{REDIS_HOST}' Puerto: {REDIS_PORT}")
+            f"Configuración detectada -> Host Redis: '{REDIS_HOST}' Puerto: {REDIS_PORT}")
         self._connect_with_retries()
 
     def _connect_with_retries(self):
@@ -30,17 +28,17 @@ class CacheMiddleware:
                     host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
                 # El ping es crucial: valida que la conexión es real
                 self.client.ping()
-                print(f"✅ ¡Conexión exitosa a Redis en '{REDIS_HOST}'!")
+                print(f"¡Conexión exitosa a Redis en '{REDIS_HOST}'!")
                 return
             except redis.ConnectionError as e:
                 print(
-                    f"⚠️ Intento {i+1}/{max_retries} fallido conectando a Redis ({e}). Reintentando en 2s...")
+                    f"Intento {i+1}/{max_retries} fallido conectando a Redis ({e}). Reintentando en 2s...")
                 self.client = None
                 time.sleep(2)
             except Exception as e:
-                print(f"❌ Error desconocido en Redis: {e}")
+                print(f"Error desconocido en Redis: {e}")
 
-        print("💀 ERROR FATAL: No se pudo conectar a Redis tras varios intentos. El Cache estará DESACTIVADO.")
+        print("ERROR: No se pudo conectar a Redis tras varios intentos. El Cache estará DESACTIVADO.")
 
     def get_event(self, event_uuid):
         start_time = time.time()
@@ -62,7 +60,7 @@ class CacheMiddleware:
 
         except redis.ConnectionError:
             # Si Redis muere a mitad de camino
-            print("⚠️ Error de conexión leyendo Cache")
+            print("Error de conexión leyendo Cache")
             source = "DB (Redis Error)"
 
         elapsed = (time.time() - start_time) * 1000
@@ -75,7 +73,7 @@ class CacheMiddleware:
                 self.client.setex(event_uuid, TTL_SECONDS,
                                   json.dumps(data_dict))
             except Exception as e:
-                print(f"⚠️ No se pudo guardar en cache: {e}")
+                print(f"No se pudo guardar en cache: {e}")
 
     def get_metrics(self):
         total = self.stats["hits"] + self.stats["misses"]

@@ -40,7 +40,7 @@ services:
     restart: always
     ports:
       - "6379:6379"
-    command: ["redis-server", "--maxmemory", "2mb", "--maxmemory-policy", "allkeys-lru"]
+    command: ["redis-server", "--maxmemory", "2mb", "--maxmemory-policy", "allkeys-lfu"]
 
   # 4. Generador de Tráfico (Tu Código Python en Docker)
   traffic-app:
@@ -54,5 +54,10 @@ services:
     environment:
       - DB_HOST=db       # Nombre del servicio de arriba
       - REDIS_HOST=cache # Nombre del servicio de arriba
+      - EXPERIMENT_NAME=prueba_lfu
+      - EXPERIMENT_DURATION=3.0  # Duración en horas
     # Comando para ejecutar el generador automáticamente
+    volumes:
+      - ./results:/app/results
+      - .:/app
     command: python -m traffic_generator.generator
