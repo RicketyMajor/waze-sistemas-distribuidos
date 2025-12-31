@@ -17,7 +17,7 @@ Thumbs.db
 
 *.deb
 *.png
-*.json
+!documentation/*.png
 !modelo_datos.json
 __pycache__/
 

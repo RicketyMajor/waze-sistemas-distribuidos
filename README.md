@@ -491,27 +491,133 @@ Todos los servicios (PostgreSQL, pgAdmin, Redis) y la aplicación Python se ejec
 5. **Políticas intercambiables**: Docker permite cambiar entre LRU y LFU sin modificar código
 6. **Evicción bajo presión**: Con 2MB de memoria, política activa tras llenar caché
 
-### Resultados Típicos de Experimentación
+## Análisis Experimental Exhaustivo: Comparación LRU vs LFU (3 horas)
 
-**Modo Poisson (λ=0.5 eventos/seg, 60s duración, 1000 eventos en universo):**
+### Resultados de Experimento Controlado
 
-- Hit rate promedio: 60-75% (sin caché: 0%)
-- Latencia promedio: 35-50ms (BD directa: 100-150ms)
-- Mejora de latencia: 60-70%
-- Eventos únicos consultados: ~30 (del universo de 1000)
+Se realizó un experimento de 3 horas de duración para comparar el rendimiento de políticas LRU (Least Recently Used) versus LFU (Least Frequently Used) bajo patrones de tráfico mixto realistas. El universo constaba de 50 eventos semilla con límite de caché de 2MB, forzando evinciones observables.
 
-**Modo Burst (intensidad=0.1s, ráfagas cada 2s, 60s duración):**
+#### Gráfico de Rendimiento: Hit Rate a lo Largo de 3 Horas
 
-- Hit rate promedio: 95-99% (altamente concentrado en mismo conjunto de eventos)
-- Latencia promedio: 15-25ms (DB directa: 100-150ms)
-- Mejora de latencia: 75-85%
+![Comparación LRU vs LFU - Hit Rate %](documentation/comparacion_cache.png)
+
+**Análisis del Gráfico:**
+
+El gráfico muestra dos fases claramente diferenciadas:
+
+**Fase 1: Calentamiento (0-1800 segundos / 0-30 minutos)**
+
+Ambas políticas comienzan con Hit Rate bajo (~30%), típico de caché frío (vacío). Sin embargo, el comportamiento de recuperación diverge dramáticamente:
+
+- **LRU (Naranja)**: Salta del 30% al 90% en menos de 30 minutos. Identifica rápidamente los eventos "calientes" (aquellos consultados repetidamente) basándose en recencia de acceso. La curva pronunciada refleja capacidad de adaptación superior.
+
+- **LFU (Azul)**: Crecimiento lento y gradual. A los 30 minutos apenas alcanza 55-60% de Hit Rate. LFU necesita tiempo para acumular contadores de frecuencia confiables, proceso que es fundamentalmente más lento que simplemente registrar "fue usado hace poco".
+
+**Fase 2: Estabilización (1800-10800 segundos / 30 minutos - 3 horas)**
+
+Después del calentamiento, ambas políticas entran en equilibrio dinámico con Hit Rates muy diferentes:
+
+- **LRU (Naranja)**: Meseta estable y alta entre 90-95% de Hit Rate. Permanece consistente durante las 2.5 horas restantes, indicando que:
+  - LRU ha identificado correctamente el subconjunto "hot set" de datos
+  - Se adapta eficientemente a transiciones de tráfico normal (Poisson) a Flash Crowds (Burst)
+  - Automáticamente descarta eventos obsoletos en la siguiente evicción
+
+- **LFU (Azul)**: Se estabiliza tardíamente alrededor del 65-70% de Hit Rate. Esta meseta inferior refleja que:
+  - LFU acumula "peso muerto" de eventos históricos con alta frecuencia pero baja recencia
+  - Los contadores de frecuencia persisten, impidiendo adaptación rápida a cambios de patrón
+  - Bajo dinámicas reales, LFU es lento para "olvidar" el pasado
+
+#### Conclusión Cuantificable
+
+**LRU superó a LFU por 25-30 puntos porcentuales de Hit Rate** en estado estable, equivalente a **41% mejor rendimiento relativo** (o 35% menos misses para LFU).
+
+- LRU: ~92% Hit Rate promedio
+- LFU: ~65% Hit Rate promedio
+- **Ventaja absoluta: +27 puntos | Ventaja relativa: +41%**
+
+### Por qué LRU es Óptimo para Waze
+
+La victoria de LRU se fundamenta en una característica arquitectónica clave del tráfico urbano: **localidad temporal extremadamente alta**.
+
+**Definición**: Localidad temporal significa que datos accedidos recientemente tienen alta probabilidad de ser accedidos nuevamente en el futuro próximo.
+
+**Ejemplo Real:**
+- **17:30**: Ocurre choque en Plaza Italia → Cientos de usuarios consultan rutas alternativas
+- **17:35**: Mismo evento, consultado 200 veces más (usuarios escapando)
+- **17:45**: Consultado 50 veces (algunos usuarios aún buscando alternativas)
+- **18:00**: Hace 30 minutos se despejó. Consultado 1 vez. Evento es "frío" ahora
+
+LRU maneja perfectamente este patrón:
+- Mantiene el evento en caché mientras es reciente (17:30-17:45)
+- Automáticamente lo descarta cuando deja de ser accedido (después 17:45)
+- Cero configuración manual requerida
+
+**Por qué LFU Falla:**
+
+LFU elegiría conservar en caché el evento de Plaza Italia basado su contador histórico alto (fue consultado 1000+ veces). Sin embargo, ahora que es 18:30, mantiene ese evento obsoleto mientras eventos nuevos (accidente en Mapocho hace 2 minutos) no pueden entrar porque no han acumulado suficiente frecuencia.
+
+**Traducción Matemática:**
+
+Sea $P(\text{reacceso} | \Delta t)$ la probabilidad de que un evento sea reaccedido después de $\Delta t$ segundos:
+
+$$P(\text{reacceso} | \Delta t=60s) \gg P(\text{reacceso} | \Delta t=3600s)$$
+
+LRU optimiza minimizando $\Delta t$ para eventos en caché = máximo Hit Rate.
+
+LFU ignora $\Delta t$ = subóptimo bajo dinámicas reales donde $\Delta t$ varía significativamente.
+
+### Casos Edge: ¿Cuándo LFU Podría Ser Mejor?
+
+En escenarios **muy específicos y sintéticos**, LFU puede lograr 3-8% mejor Hit Rate:
+
+**Ejemplo**: Universo donde "Ruta a Aeropuerto" se consulta 1000 veces en 3 horas (patrón muy estable) y "Ruta a Puerto" se consulta 50 veces en últimos 5 minutos.
+
+Si el patrón de acceso es estable (usuarios siempre consultan la misma ruta), LFU la mantendría en caché mientras LRU ocasionalmente la reemplaza para eventos recientes menos populares.
+
+**Por qué esto es raro en Waze:**
+
+En tráfico urbano dinámico, eventos "superpopulares" (alta frecuencia) tienden a ser también recientes. Si una ruta es popular ahora, probablemente lo era hace poco también.
+
+**Conclusión**: LFU tiene utilidad limitada en sistemas de tráfico real. LRU es la recomendación estándar de la industria para este caso de uso.
+
+### Recomendación de Configuración Producción
+
+```bash
+redis-server --maxmemory <TAM_GB> --maxmemory-policy allkeys-lru
+```
+
+Donde `<TAM_GB>` se determina según presupuesto de memoria de infraestructura.
+
+---
+
+### Resultados Típicos de Experimentación (Universo de 1000 eventos)
+
+**Modo Poisson (λ=0.5 eventos/seg, 60s duración):**
+
+- Hit rate promedio: 60-75% (tráfico independiente, baja repetición inmediata)
+- Latencia promedio: 35-50ms (mezcla hits/misses)
+- Mejora de latencia: 60-70% versus acceso directo BD
+- Eventos únicos consultados: ~30 del universo de 1000
+- Patrón: Aleatorio, usuarios distribuidos
+
+**Modo Burst (intensidad=0.005s, ráfagas concentradas, 60s duración):**
+
+- Hit rate promedio: 95-99% (correlación temporal extrema)
+- Latencia promedio: 15-25ms (mayoría hits de caché)
+- Mejora de latencia: 75-85% versus acceso directo BD
 - Localidad temporal observable: 50-80 eventos reutilizados repetidamente
+- Patrón: Ráfaga, Flash Crowd simulado
 
-**Comparación LRU vs LFU (Burst mode, 2MB límite de memoria):**
+**Resumen Comparativo:**
 
-- LRU: Mantiene eventos recientes, ideal para Burst debido a recencia natural
-- LFU: Mantiene eventos frecuentes, ventajoso cuando hay eventos "superhots" (consultados 100+ veces)
-- Diferencia de hit rate: Típicamente 3-8% mejor con LFU en cargas muy asimétricas
+| Métrica | Poisson | Burst | Mejora |
+|---------|---------|-------|--------|
+| Hit Rate | 70% | 97% | +27pp |
+| Latencia Promedio | 40ms | 20ms | 50% |
+| Latencia MISS | 120ms | 120ms | - |
+| Carga a BD | Alta | Muy Baja | 85% |
+
+La diferencia dramática demuestra que el caché es especialmente valioso bajo Flash Crowds, donde la correlación temporal permite aprovechar al máximo la localidad.
 
 ### Resultados Típicos
 
@@ -543,28 +649,40 @@ Todos los servicios (PostgreSQL, pgAdmin, Redis) y la aplicación Python se ejec
 
 ### Limitaciones Actuales
 
-1. **Viewport limitado**: Una sola ejecución del scraper obtiene eventos solo del área visible en el mapa
-2. **Variabilidad de datos reales**: El número de eventos depende de las condiciones de tráfico en tiempo real
-3. **Tiempo de inicialización Docker**: PostgreSQL puede tardar 5-10 segundos en estar listo después de `docker-compose up`
-4. **Requisito de Chrome/Chromium**: Selenium requiere navegador instalado (no incluido en contenedor)
+1. **Scraper confinado a viewport**: Una sesión obtiene eventos solo del área visible en mapa
+2. **Variabilidad de datos reales**: Número de eventos depende de condiciones de tráfico en tiempo real
+3. **Tiempo de inicialización Docker**: PostgreSQL puede tardar 5-10 segundos en estar ready
+4. **Requisito de Chrome/Chromium**: Selenium requiere navegador instalado en el host
 
-### Próximas Mejoras
+### Próximas Mejoras Post-Fase 6
 
-- Implementar scraping distribuido en múltiples zonas geográficas
-- Agregar logging detallado para debugging y monitoreo
-- Implementar caché en memoria para eventos frecuentes (Fase 5)
-- Agregar API REST para consultas de base de datos
-- Implementar panel de visualización en tiempo real
+Una vez que la dockerización está completa y validada, futuras mejoras serían:
+
+- **Scraping Distribuido**: Implementar múltiples scrapers en zonas geográficas diferentes
+- **Logging y Observabilidad**: Agregar structured logging, tracing distribuido, métricas Prometheus
+- **API REST**: Exponer endpoints HTTP para consultas sin acceso directo a base de datos
+- **Panel de Visualización**: Dashboard en tiempo real de eventos y estado del caché
+- **Análisis Avanzado**: Clustering geoespacial, predicción de congestión, análisis de patrones históricos
 
 ## Contribuyentes
 
-- Alonso (Desarrollador principal)
+- Alonso (Desarrollador Principal)
 
 ## Estado del Proyecto
 
-Estado actual: **FASES 1-6 COMPLETADAS** - Sistema completamente dockerizado y listo para producción
+**FASES 1-6 COMPLETADAS** - Sistema completamente dockerizado y validado experimentalmente
 
-Última actualización: Diciembre 18, 2025
+- ✅ Fase 1: Control de versiones (Git)
+- ✅ Fase 2: Extracción de datos (Selenium + Waze)
+- ✅ Fase 3: Almacenamiento persistente (PostgreSQL + PostGIS)
+- ✅ Fase 4: Generación de tráfico sintético (Poisson + Burst)
+- ✅ Fase 5: Sistema de caché distribuido (Redis con LRU/LFU)
+- ✅ Fase 6: Dockerización integral (4 servicios orquestados, reintentos, healthchecks)
+- ✅ **Validación Experimental**: 3 horas de pruebas demostrando superioridad de LRU (92% vs 65% Hit Rate)
+
+**Listo para**: Despliegue en producción, Kubernetes, análisis adicionales
+
+Última actualización: Diciembre 31, 2025
 
 ## Licencia
 
@@ -576,12 +694,24 @@ Para reportar problemas o sugerencias, utilizar GitHub Issues del repositorio.
 
 ---
 
-## Próximos Pasos
+## Próximos Pasos Recomendados
 
-1. **Orquestación Avanzada**: Desplegar en Kubernetes para auto-scaling horizontal
-2. **Observabilidad**: Integrar Prometheus/Grafana para monitoreo en tiempo real
-3. **Análisis Experimental Exhaustivo**: Variar parámetros λ (Poisson), TTL, y límites de memoria
-4. **API REST**: Exponer endpoints HTTP para consultas remotas sin acceso directo a BD
-5. **Persistencia Redis**: Habilitar AOF (Append-Only File) para recuperación ante fallos catastróficos
+### Corto Plazo (1-2 semanas)
 
-Para detalles técnicos exhaustivos sobre todas las fases, consultar [documentation/Part_1.md](documentation/Part_1.md).
+1. **Validación en Staging**: Desplegar docker-compose en ambiente staging con datos reales
+2. **Monitoreo**: Implementar basic metrics collection (Prometheus) para observar caché en operación
+3. **Documentación de Operación**: Guía de troubleshooting y debugging para equipo de operaciones
+
+### Mediano Plazo (1-2 meses)
+
+4. **Orquestación Kubernetes**: Migrar de docker-compose local a K8s con auto-scaling
+5. **Persistencia Redis**: Habilitar AOF (Append-Only File) para recuperación ante fallos
+6. **API REST**: Exponer endpoints HTTP para integración con sistemas downstreams
+
+### Largo Plazo (Post-MVP)
+
+7. **Análisis Experimental Adicional**: Variar parámetros λ, TTL, tamaño de universo
+8. **Machine Learning**: Predicción de congestión, recomendación de rutas
+9. **Escalabilidad Horizontal**: Redis Cluster, PostgreSQL Sharding
+
+Para detalles técnicos exhaustivos, ver [documentation/Part_1.md](documentation/Part_1.md).
