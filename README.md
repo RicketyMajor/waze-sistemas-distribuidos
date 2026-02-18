@@ -542,12 +542,14 @@ La victoria de LRU se fundamenta en una característica arquitectónica clave de
 **Definición**: Localidad temporal significa que datos accedidos recientemente tienen alta probabilidad de ser accedidos nuevamente en el futuro próximo.
 
 **Ejemplo Real:**
+
 - **17:30**: Ocurre choque en Plaza Italia → Cientos de usuarios consultan rutas alternativas
 - **17:35**: Mismo evento, consultado 200 veces más (usuarios escapando)
 - **17:45**: Consultado 50 veces (algunos usuarios aún buscando alternativas)
 - **18:00**: Hace 30 minutos se despejó. Consultado 1 vez. Evento es "frío" ahora
 
 LRU maneja perfectamente este patrón:
+
 - Mantiene el evento en caché mientras es reciente (17:30-17:45)
 - Automáticamente lo descarta cuando deja de ser accedido (después 17:45)
 - Cero configuración manual requerida
@@ -610,12 +612,12 @@ Donde `<TAM_GB>` se determina según presupuesto de memoria de infraestructura.
 
 **Resumen Comparativo:**
 
-| Métrica | Poisson | Burst | Mejora |
-|---------|---------|-------|--------|
-| Hit Rate | 70% | 97% | +27pp |
-| Latencia Promedio | 40ms | 20ms | 50% |
-| Latencia MISS | 120ms | 120ms | - |
-| Carga a BD | Alta | Muy Baja | 85% |
+| Métrica           | Poisson | Burst    | Mejora |
+| ----------------- | ------- | -------- | ------ |
+| Hit Rate          | 70%     | 97%      | +27pp  |
+| Latencia Promedio | 40ms    | 20ms     | 50%    |
+| Latencia MISS     | 120ms   | 120ms    | -      |
+| Carga a BD        | Alta    | Muy Baja | 85%    |
 
 La diferencia dramática demuestra que el caché es especialmente valioso bajo Flash Crowds, donde la correlación temporal permite aprovechar al máximo la localidad.
 
@@ -629,6 +631,15 @@ La diferencia dramática demuestra que el caché es especialmente valioso bajo F
 - Mejora de latencia con caché: 60-85% en modos respectivos
 
 ## Configuración de Desarrollo
+
+## Quickstart
+
+```bash
+git clone <waze-sistemas-distribuidos>
+cd waze-sistemas-distribuidos
+cp .env.example .env
+docker-compose up -d
+```
 
 ### Ramas Git
 
@@ -693,25 +704,5 @@ Proyecto académico - Universidad Diego Portales
 Para reportar problemas o sugerencias, utilizar GitHub Issues del repositorio.
 
 ---
-
-## Próximos Pasos Recomendados
-
-### Corto Plazo (1-2 semanas)
-
-1. **Validación en Staging**: Desplegar docker-compose en ambiente staging con datos reales
-2. **Monitoreo**: Implementar basic metrics collection (Prometheus) para observar caché en operación
-3. **Documentación de Operación**: Guía de troubleshooting y debugging para equipo de operaciones
-
-### Mediano Plazo (1-2 meses)
-
-4. **Orquestación Kubernetes**: Migrar de docker-compose local a K8s con auto-scaling
-5. **Persistencia Redis**: Habilitar AOF (Append-Only File) para recuperación ante fallos
-6. **API REST**: Exponer endpoints HTTP para integración con sistemas downstreams
-
-### Largo Plazo (Post-MVP)
-
-7. **Análisis Experimental Adicional**: Variar parámetros λ, TTL, tamaño de universo
-8. **Machine Learning**: Predicción de congestión, recomendación de rutas
-9. **Escalabilidad Horizontal**: Redis Cluster, PostgreSQL Sharding
 
 Para detalles técnicos exhaustivos, ver [documentation/Part_1.md](documentation/Part_1.md).

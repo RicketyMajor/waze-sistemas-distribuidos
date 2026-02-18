@@ -989,6 +989,7 @@ La diferencia pronunciada en esta fase revela una característica fundamental: b
 Después del calentamiento, ambas políticas entran en un estado de equilibrio dinámico donde el Hit Rate se estabiliza:
 
 - **LRU (Naranja)**: Se mantiene en una meseta muy alta y estable, oscilando consistentemente entre 90% y 95% de Hit Rate durante las 2 horas y media restantes. Esta estabilidad indica que:
+
   - LRU ha identificado correctamente el subconjunto de datos "calientes"
   - El algoritmo mantiene los eventos recientemente accedidos, evinciendo automáticamente los obsoletos
   - Bajo tráfico normal y Flash Crowds alternados, LRU se adapta eficientemente a cambios de patrón
@@ -1001,6 +1002,7 @@ Después del calentamiento, ambas políticas entran en un estado de equilibrio d
 **Diferencia Cuantificable:**
 
 La brecha entre políticas es approximately 25-30 puntos porcentuales en estado estable:
+
 - LRU: ~92% Hit Rate promedio
 - LFU: ~65% Hit Rate promedio
 - **Ventaja relativa de LRU: +41% mejor rendimiento** (o equivalentemente, LFU sufre 35% más misses)
@@ -1050,6 +1052,7 @@ LFU optimiza para máxima cantidad histórica de reaccesos, ignorando $\Delta t$
 Existen escenarios donde LFU superaría a LRU, aunque son raros en tráfico real de Waze:
 
 **Escenario Sintético Asimétrico**: Imagine un universo donde:
+
 - "Ruta a Aeropuerto" se consulta 1000 veces en un período largo (1-3 horas)
 - "Ruta a Puerto de Valparaíso" se consulta 50 veces en un período corto (últimos 5 minutos)
 
@@ -1101,12 +1104,14 @@ Las seis fases han construido una plataforma completa, resiliente y escalable de
 **Fase 4**: Generación de tráfico sintético con dos distribuciones matemáticas realistas (Poisson para eventos independientes con λ configurable, Burst para correlación temporal) que permiten evaluación reproducible bajo diferentes patrones de carga con total control experimental.
 
 **Fase 5**: Optimización mediante caché distribuido (Redis) con políticas de reemplazo parametrizables, con validación experimental demostrando:
+
 - **LRU superiority**: 92% Hit Rate bajo cargas dinámicas
 - **LFU adecuado para**: Cargas estables y simétricas (±3-8% peor que LRU)
 - **Mejoras de latencia**: 60-85% reducción versus acceso directo a BD
 - **Escalabilidad observada**: Manejo eficiente de transiciones Poisson→Burst
 
 **Fase 6**: Dockerización integral transformando la plataforma en una solución completamente contenerizada con:
+
 - Cuatro servicios orquestados (PostgreSQL+PostGIS, pgAdmin, Redis, traffic-app)
 - Variables de entorno configurables (REDIS_HOST) sin cambios de código
 - Reintentos automáticos con backoff exponencial (5 intentos, 2s inicial)
