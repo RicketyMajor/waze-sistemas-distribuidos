@@ -9,21 +9,31 @@ from scraper.data_processor import process_waze_event
 from storage.db_client import pg_manager
 
 # - - - - - - - - - - - - - - - - - - - - - -
-# Constants
+# Zonas de la Región Metropolitana
 # - - - - - - - - - - - - - - - - - - - - - -
-
-lat = "-33.4489"
-lon = "-70.6693"
-zoom = "14"
-WAZE_URL = f"https://www.waze.com/es-419/live-map/directions?latlng={lat}%2C{lon}&zoom={zoom}"
+ZONAS_RM = [
+    {"nombre": "Santiago Centro", "lat": "-33.4489", "lon": "-70.6693"},
+    {"nombre": "Providencia/Las Condes", "lat": "-33.4150", "lon": "-70.5850"},
+    {"nombre": "Maipú/Cerrillos", "lat": "-33.5100", "lon": "-70.7587"},
+    {"nombre": "La Florida/Macul", "lat": "-33.5226", "lon": "-70.5985"},
+    {"nombre": "Puente Alto", "lat": "-33.6117", "lon": "-70.5758"},
+    {"nombre": "Quilicura/Huechuraba", "lat": "-33.3653", "lon": "-70.7303"},
+    {"nombre": "San Bernardo", "lat": "-33.5912", "lon": "-70.7046"},
+    {"nombre": "Pudahuel/Lo Prado", "lat": "-33.4400", "lon": "-70.7500"}
+]
+zoom = "13"  # Zoom 13 abarca más kilómetros cuadrados por cada coordenada
 
 # - - - - - - - - - - - - - - - - - - - - - -
 # Waze Scraper
 # - - - - - - - - - - - - - - - - - - - - - -
 
-def get_waze_traffic_data():
-    """Gets Waze traffic data and stores it in the database."""
-    print(f"--- INICIANDO SCRAPER (PostgreSQL) ---")
+
+def get_waze_traffic_data(lat, lon, nombre_zona):
+    """Gets Waze traffic data across multiple zones and stores it in the database."""
+    print(f"--- INICIANDO SCRAPER ZONA: {nombre_zona} (PostgreSQL) ---")
+
+    # Creamos la URL dinámicamente según la zona que pasemos por parámetro
+    WAZE_URL = f"https://www.waze.com/es-419/live-map/directions?latlng={lat}%2C{lon}&zoom={zoom}"
 
     chrome_options = Options()
     chrome_options.add_argument("--headless")
@@ -83,7 +93,7 @@ def get_waze_traffic_data():
         driver.quit()
 
     total_in_db = pg_manager.count_events()
-    print(f"--- RESUMEN CICLO ---")
+    print(f"--- RESUMEN CICLO ({nombre_zona}) ---")
     print(f"Nuevos eventos guardados: {new_events_count}")
     print(f"Total en PostgreSQL:      {total_in_db}")
 
@@ -93,13 +103,20 @@ def get_waze_traffic_data():
 # Main
 # - - - - - - - - - - - - - - - - - - - - - -
 
+
 if __name__ == "__main__":
-    print("Iniciando recolección continua hacia PostgreSQL.")
+    print("Iniciando recolección continua MULTIZONA hacia PostgreSQL.")
     try:
         while True:
-            get_waze_traffic_data()
+            for zona in ZONAS_RM:
+                # Llamamos a la función por cada zona
+                get_waze_traffic_data(zona["lat"], zona["lon"], zona["nombre"])
+                time.sleep(5)  # Breve pausa entre zonas para no saturar CPU
+
             wait_time = random.randint(15, 30)
-            print(f"Durmiendo {wait_time} segundos...")
+            print(
+                f"Ciclo RM completado. Durmiendo {wait_time} segundos antes del siguiente barrido...")
             time.sleep(wait_time)
+
     except KeyboardInterrupt:
-        print("\nDetenido.")
+        print("\nRecolección detenida manualmente.")

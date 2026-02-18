@@ -17,6 +17,7 @@ DB_PORT = "5432"
 # Waze Postgres Client
 # - - - - - - - - - - - - - - - - - - - - - -
 
+
 class WazePostgresClient:
     def __init__(self):
         self.conn = None
@@ -123,6 +124,21 @@ class WazePostgresClient:
         with self.conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM traffic_events;")
             return cur.fetchone()[0]
+
+    def get_all_events(self):
+        """Obtiene todos los eventos crudos para el proceso ETL de Big Data."""
+        try:
+            with self.conn.cursor() as cur:
+                # Obtenemos los campos clave, extrayendo la latitud y longitud desde PostGIS
+                cur.execute("""
+                    SELECT waze_uuid, timestamp_scraped, ST_X(location) as lon, ST_Y(location) as lat, 
+                           type, subtype, description, street, city
+                    FROM traffic_events;
+                """)
+                return cur.fetchall()
+        except Exception as e:
+            print(f"Error obteniendo todos los eventos para ETL: {e}")
+            return []
 
 
 pg_manager = WazePostgresClient()
