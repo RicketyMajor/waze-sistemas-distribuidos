@@ -1,5 +1,3 @@
-version: '3.8'
-
 services:
   # 1. Base de Datos
   db:
@@ -51,13 +49,30 @@ services:
         condition: service_healthy
       cache:
         condition: service_started
-    environment:
-      - DB_HOST=db       # Nombre del servicio de arriba
-      - REDIS_HOST=cache # Nombre del servicio de arriba
-      - EXPERIMENT_NAME=prueba_lfu
-      - EXPERIMENT_DURATION=3.0  # Duración en horas
-    # Comando para ejecutar el generador automáticamente
     volumes:
-      - ./results:/app/results
-      - .:/app
-    command: python -m traffic_generator.generator
+      - ./shared_data:/app/shared_data  # NUEVO: Volumen compartido para pasar datos al procesador Pig
+    environment:
+      - DB_HOST=db
+      - DB_USER=waze_user
+      - DB_PASS=waze_password
+      - DB_NAME=waze_db
+      - REDIS_HOST=cache
+      - REDIS_PORT=6379
+
+  # 5. NUEVO: Procesador Big Data (Apache Pig + Hadoop MapReduce local)
+  pig-processor:
+    build:
+      context: .
+      dockerfile: Dockerfile.pig
+    container_name: waze_pig_processor
+    restart: always
+    volumes:
+      - ./shared_data:/app/shared_data  # Lee los datos que extrae traffic-app
+      - ./processing:/app/processing    # Carpeta donde crearemos los scripts .pig (Fase 3)
+    depends_on:
+      - db
+      - cache
+    environment:
+      - DB_HOST=db
+      - REDIS_HOST=cache
+    command: ["tail", "-f", "/dev/null"] # Mantiene el contenedor listo para recibir comandos
