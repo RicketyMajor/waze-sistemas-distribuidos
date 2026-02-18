@@ -5,18 +5,24 @@ from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.chrome.options import Options
 from webdriver_manager.chrome import ChromeDriverManager
-
-# Importaciones
 from scraper.data_processor import process_waze_event
-from storage.db_client import pg_manager  # <--- CAMBIO A POSTGRES
+from storage.db_client import pg_manager
+
+# - - - - - - - - - - - - - - - - - - - - - -
+# Constants
+# - - - - - - - - - - - - - - - - - - - - - -
 
 lat = "-33.4489"
 lon = "-70.6693"
 zoom = "14"
 WAZE_URL = f"https://www.waze.com/es-419/live-map/directions?latlng={lat}%2C{lon}&zoom={zoom}"
 
+# - - - - - - - - - - - - - - - - - - - - - -
+# Waze Scraper
+# - - - - - - - - - - - - - - - - - - - - - -
 
 def get_waze_traffic_data():
+    """Gets Waze traffic data and stores it in the database."""
     print(f"--- INICIANDO SCRAPER (PostgreSQL) ---")
 
     chrome_options = Options()
@@ -64,7 +70,6 @@ def get_waze_traffic_data():
                         for item in items_to_process:
                             clean_event = process_waze_event(item)
                             if clean_event:
-                                # Insertar en Postgres
                                 saved = pg_manager.insert_event(clean_event)
                                 if saved:
                                     new_events_count += 1
@@ -84,6 +89,9 @@ def get_waze_traffic_data():
 
     return new_events_count
 
+# - - - - - - - - - - - - - - - - - - - - - -
+# Main
+# - - - - - - - - - - - - - - - - - - - - - -
 
 if __name__ == "__main__":
     print("Iniciando recolección continua hacia PostgreSQL.")

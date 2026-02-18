@@ -2,12 +2,18 @@ import os
 import time
 import json
 import redis
-# Configuración Inteligente
-# Leemos la variable de entorno. Si no existe, avisa.
+
+# - - - - - - - - - - - - - - - - - - - - - -
+# Configuration
+# - - - - - - - - - - - - - - - - - - - - - -
+
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = 6379
 TTL_SECONDS = 60
 
+# - - - - - - - - - - - - - - - - - - - - - -
+# Cache Middleware
+# - - - - - - - - - - - - - - - - - - - - - -
 
 class CacheMiddleware:
     def __init__(self):
@@ -19,15 +25,14 @@ class CacheMiddleware:
         self._connect_with_retries()
 
     def _connect_with_retries(self):
-        """Intenta conectar a Redis varias veces antes de rendirse"""
+        """Attempts to connect to Redis with retries."""
         max_retries = 5
         for i in range(max_retries):
             try:
-                # Intentamos conectar
+                # Attempt to connect
                 self.client = redis.Redis(
                     host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-                # El ping es crucial: valida que la conexión es real
-                self.client.ping()
+                self.client.ping() # Ping to validate the connection
                 print(f"¡Conexión exitosa a Redis en '{REDIS_HOST}'!")
                 return
             except redis.ConnectionError as e:
@@ -41,11 +46,11 @@ class CacheMiddleware:
         print("ERROR: No se pudo conectar a Redis tras varios intentos. El Cache estará DESACTIVADO.")
 
     def get_event(self, event_uuid):
+        """Gets an event from the cache or database."""
         start_time = time.time()
         result = None
         source = "DB"
 
-        # Si el cliente no existe (falló conexión), retornamos DB directo
         if not self.client:
             return "DB (Cache Down)", 0
 
@@ -59,7 +64,6 @@ class CacheMiddleware:
                 self.stats["misses"] += 1
 
         except redis.ConnectionError:
-            # Si Redis muere a mitad de camino
             print("Error de conexión leyendo Cache")
             source = "DB (Redis Error)"
 
@@ -68,6 +72,7 @@ class CacheMiddleware:
         return source, elapsed
 
     def save_to_cache(self, event_uuid, data_dict):
+        """Saves data to the cache."""
         if self.client:
             try:
                 self.client.setex(event_uuid, TTL_SECONDS,
@@ -76,6 +81,7 @@ class CacheMiddleware:
                 print(f"No se pudo guardar en cache: {e}")
 
     def get_metrics(self):
+        """Gets the cache metrics."""
         total = self.stats["hits"] + self.stats["misses"]
         if total == 0:
             return "Sin datos (0 consultas)"

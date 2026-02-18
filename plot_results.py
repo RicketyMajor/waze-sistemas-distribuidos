@@ -2,8 +2,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import os
 
+# - - - - - - - - - - - - - - - - - - - - - -
+# Plotting
+# - - - - - - - - - - - - - - - - - - - - - -
 
 def plot_comparison():
+    """Plots a comparison of cache performance from CSV files."""
     results_dir = "results"
     files = [f for f in os.listdir(results_dir) if f.endswith(".csv")]
 
@@ -14,16 +18,16 @@ def plot_comparison():
     plt.figure(figsize=(12, 6))
 
     for file in files:
-        # Leer CSV
+        # Read CSV
         path = os.path.join(results_dir, file)
         try:
             df = pd.read_csv(path)
 
-            # Limpiar nombre para la leyenda (quitar .csv y 'prueba_')
+            # Clean name for legend
             label_name = file.replace(
                 ".csv", "").replace("prueba_", "").upper()
 
-            # Ploteamos: Eje X = Segundos Transcurridos, Eje Y = Hit Rate
+            # Plot data
             plt.plot(df['seconds_elapsed'], df['hit_rate'],
                      label=label_name, linewidth=2)
 
@@ -33,15 +37,18 @@ def plot_comparison():
     plt.title("Comparación de Rendimiento de Cache: LRU vs LFU", fontsize=16)
     plt.xlabel("Tiempo de Ejecución (segundos)", fontsize=12)
     plt.ylabel("Hit Rate (%)", fontsize=12)
-    plt.ylim(0, 100)  # El porcentaje va de 0 a 100
+    plt.ylim(0, 100)
     plt.grid(True, linestyle='--', alpha=0.7)
     plt.legend(fontsize=12)
 
     output_img = "results/comparacion_cache.png"
     plt.savefig(output_img)
     print(f"Gráfico generado exitosamente: {output_img}")
-    plt.show()  # Intenta abrir ventana si tienes servidor X, si no, revisa el archivo PNG
+    plt.show()
 
+# - - - - - - - - - - - - - - - - - - - - - -
+# Main
+# - - - - - - - - - - - - - - - - - - - - - -
 
 if __name__ == "__main__":
     plot_comparison()

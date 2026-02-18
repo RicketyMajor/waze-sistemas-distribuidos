@@ -3,13 +3,19 @@ import time
 import psycopg2
 from psycopg2.extras import Json
 
-# Configuración
+# - - - - - - - - - - - - - - - - - - - - - -
+# Configuration
+# - - - - - - - - - - - - - - - - - - - - - -
+
 DB_HOST = os.getenv('DB_HOST', 'localhost')
 DB_NAME = "waze_db"
 DB_USER = "waze_user"
 DB_PASS = "waze_password"
 DB_PORT = "5432"
 
+# - - - - - - - - - - - - - - - - - - - - - -
+# Waze Postgres Client
+# - - - - - - - - - - - - - - - - - - - - - -
 
 class WazePostgresClient:
     def __init__(self):
@@ -18,7 +24,7 @@ class WazePostgresClient:
         self._create_table()
 
     def _connect(self):
-        """Intenta conectar a la BD con reintentos (útil si Docker está despertando)"""
+        """Connects to the database with retries."""
         attempts = 0
         while attempts < 5:
             try:
@@ -39,13 +45,12 @@ class WazePostgresClient:
         raise Exception("No se pudo conectar a la Base de Datos")
 
     def _create_table(self):
-        """Define el esquema de la tabla y habilita PostGIS"""
+        """Defines the table schema and enables PostGIS."""
         with self.conn.cursor() as cur:
-            # 1. Habilitar extensión PostGIS (Magia para mapas)
+            # Enable PostGIS extension
             cur.execute("CREATE EXTENSION IF NOT EXISTS postgis;")
 
-            # 2. Crear tabla si no existe
-            # Usamos GEOMETRY(Point, 4326) que es el estándar GPS (Lat/Lon)
+            # Create table if it doesn't exist
             cur.execute("""
                 CREATE TABLE IF NOT EXISTS traffic_events (
                     id SERIAL PRIMARY KEY,
@@ -62,20 +67,16 @@ class WazePostgresClient:
                 );
             """)
 
-            # 3. Crear índice espacial (para búsquedas por distancia rápidas)
+            # Create spatial index
             cur.execute("""
                 CREATE INDEX IF NOT EXISTS idx_traffic_location 
                 ON traffic_events USING GIST (location);
             """)
 
     def insert_event(self, event):
-        """
-        Inserta un evento transformando las coordenadas a formato PostGIS.
-        Retorna True si insertó, False si era duplicado.
-        """
+        """Inserts an event, transforming coordinates to PostGIS format."""
         try:
             with self.conn.cursor() as cur:
-                # PostGIS usa formato 'POINT(lon lat)'
                 lon, lat = event['location']['coordinates']
                 point_str = f'POINT({lon} {lat})'
 
@@ -96,7 +97,6 @@ class WazePostgresClient:
                     event['city']
                 ))
 
-                # cur.rowcount es 1 si insertó, 0 si no hizo nada (duplicado)
                 return cur.rowcount > 0
 
         except Exception as e:
@@ -104,29 +104,25 @@ class WazePostgresClient:
             return False
 
     def get_simulation_seeds(self, limit=100):
-        """
-        Recupera un lote de coordenadas reales y IDs para usarlos como 
-        semilla en el generador de tráfico.
-        """
+        """Retrieves a batch of real coordinates and IDs for the traffic generator."""
         try:
             with self.conn.cursor() as cur:
-                # Obtenemos IDs y coordenadas de eventos reales
                 cur.execute("""
                     SELECT waze_uuid, ST_X(location) as lon, ST_Y(location) as lat 
                     FROM traffic_events 
                     ORDER BY RANDOM() 
                     LIMIT %s;
                 """, (limit,))
-                return cur.fetchall()  # Retorna lista de tuplas [(uuid, lon, lat), ...]
+                return cur.fetchall()
         except Exception as e:
             print(f"Error obteniendo semillas: {e}")
             return []
 
     def count_events(self):
+        """Counts the total number of events in the database."""
         with self.conn.cursor() as cur:
             cur.execute("SELECT COUNT(*) FROM traffic_events;")
             return cur.fetchone()[0]
 
 
-# Instancia global
 pg_manager = WazePostgresClient()
