@@ -15,6 +15,7 @@ TTL_SECONDS = 60
 # Cache Middleware
 # - - - - - - - - - - - - - - - - - - - - - -
 
+
 class CacheMiddleware:
     def __init__(self):
         self.client = None
@@ -32,7 +33,7 @@ class CacheMiddleware:
                 # Attempt to connect
                 self.client = redis.Redis(
                     host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-                self.client.ping() # Ping to validate the connection
+                self.client.ping()  # Ping to validate the connection
                 print(f"¡Conexión exitosa a Redis en '{REDIS_HOST}'!")
                 return
             except redis.ConnectionError as e:
@@ -79,6 +80,40 @@ class CacheMiddleware:
                                   json.dumps(data_dict))
             except Exception as e:
                 print(f"No se pudo guardar en cache: {e}")
+
+    def set_analytics(self, report_name, data_list):
+        """Saves analytical reports (Big Data) to the cache without TTL."""
+        if self.client:
+            try:
+                # Usamos el prefijo 'analytics:' para separar la data analítica de la operacional
+                key = f"analytics:{report_name}"
+                # Guardamos la lista de resultados como un string JSON
+                self.client.set(key, json.dumps(data_list))
+            except Exception as e:
+                print(f"No se pudo guardar analítica en cache: {e}")
+
+    def get_analytics(self, report_name):
+        """Retrieves analytical reports from the cache."""
+        start_time = time.time()
+        result = None
+
+        if not self.client:
+            return None, 0
+
+        try:
+            key = f"analytics:{report_name}"
+            cached_data = self.client.get(key)
+            if cached_data:
+                self.stats["hits"] += 1
+                result = json.loads(cached_data)
+            else:
+                self.stats["misses"] += 1
+
+        except redis.ConnectionError:
+            print("Error de conexión leyendo Cache de Analíticas")
+
+        elapsed = (time.time() - start_time) * 1000
+        return result, elapsed
 
     def get_metrics(self):
         """Gets the cache metrics."""
