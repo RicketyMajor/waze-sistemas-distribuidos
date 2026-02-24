@@ -51,6 +51,7 @@ services:
         condition: service_started
     volumes:
       - ./shared_data:/app/shared_data  # NUEVO: Volumen compartido para pasar datos al procesador Pig
+      - ./results:/app/results
     environment:
       - DB_HOST=db
       - DB_USER=waze_user

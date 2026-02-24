@@ -9,19 +9,65 @@ from scraper.data_processor import process_waze_event
 from storage.db_client import pg_manager
 
 # - - - - - - - - - - - - - - - - - - - - - -
-# Zonas de la Región Metropolitana
+# Zonas de la Región Metropolitana (52 Comunas)
 # - - - - - - - - - - - - - - - - - - - - - -
 ZONAS_RM = [
-    {"nombre": "Santiago Centro", "lat": "-33.4489", "lon": "-70.6693"},
-    {"nombre": "Providencia/Las Condes", "lat": "-33.4150", "lon": "-70.5850"},
-    {"nombre": "Maipú/Cerrillos", "lat": "-33.5100", "lon": "-70.7587"},
-    {"nombre": "La Florida/Macul", "lat": "-33.5226", "lon": "-70.5985"},
-    {"nombre": "Puente Alto", "lat": "-33.6117", "lon": "-70.5758"},
-    {"nombre": "Quilicura/Huechuraba", "lat": "-33.3653", "lon": "-70.7303"},
-    {"nombre": "San Bernardo", "lat": "-33.5912", "lon": "-70.7046"},
-    {"nombre": "Pudahuel/Lo Prado", "lat": "-33.4400", "lon": "-70.7500"}
+    # Provincia de Santiago
+    {"nombre": "Santiago", "lat": "-33.4489",
+        "lon": "-70.6693"}, {"nombre": "Cerrillos", "lat": "-33.5000", "lon": "-70.7167"},
+    {"nombre": "Cerro Navia", "lat": "-33.4222",
+        "lon": "-70.7389"}, {"nombre": "Conchali", "lat": "-33.3833", "lon": "-70.6833"},
+    {"nombre": "El Bosque", "lat": "-33.5667", "lon": "-70.6667"}, {
+        "nombre": "Estacion Central", "lat": "-33.4667", "lon": "-70.7000"},
+    {"nombre": "Huechuraba", "lat": "-33.3667", "lon": "-70.6333"}, {
+        "nombre": "Independencia", "lat": "-33.4167", "lon": "-70.6667"},
+    {"nombre": "La Cisterna", "lat": "-33.5333",
+        "lon": "-70.6667"}, {"nombre": "La Florida", "lat": "-33.5167", "lon": "-70.5333"},
+    {"nombre": "La Granja", "lat": "-33.5333",
+        "lon": "-70.6167"}, {"nombre": "La Pintana", "lat": "-33.5833", "lon": "-70.6333"},
+    {"nombre": "La Reina", "lat": "-33.4500",
+        "lon": "-70.5333"}, {"nombre": "Las Condes", "lat": "-33.4167", "lon": "-70.5833"},
+    {"nombre": "Lo Barnechea", "lat": "-33.3500",
+        "lon": "-70.5167"}, {"nombre": "Lo Espejo", "lat": "-33.5167", "lon": "-70.6833"},
+    {"nombre": "Lo Prado", "lat": "-33.4500",
+        "lon": "-70.7167"}, {"nombre": "Macul", "lat": "-33.5000", "lon": "-70.6000"},
+    {"nombre": "Maipu", "lat": "-33.5167", "lon": "-70.7667"}, {"nombre": "Nunoa",
+                                                                "lat": "-33.4500", "lon": "-70.6000"},
+    {"nombre": "Pedro Aguirre Cerda", "lat": "-33.4833",
+        "lon": "-70.6667"}, {"nombre": "Penalolen", "lat": "-33.4833", "lon": "-70.5333"},
+    {"nombre": "Providencia", "lat": "-33.4333",
+        "lon": "-70.6167"}, {"nombre": "Pudahuel", "lat": "-33.4333", "lon": "-70.7667"},
+    {"nombre": "Quilicura", "lat": "-33.3667", "lon": "-70.7333"}, {
+        "nombre": "Quinta Normal", "lat": "-33.4333", "lon": "-70.6833"},
+    {"nombre": "Recoleta", "lat": "-33.4000",
+        "lon": "-70.6333"}, {"nombre": "Renca", "lat": "-33.4000", "lon": "-70.7333"},
+    {"nombre": "San Joaquin", "lat": "-33.4833",
+        "lon": "-70.6333"}, {"nombre": "San Miguel", "lat": "-33.4833", "lon": "-70.6500"},
+    {"nombre": "San Ramon", "lat": "-33.5333",
+        "lon": "-70.6333"}, {"nombre": "Vitacura", "lat": "-33.4000", "lon": "-70.6000"},
+    # Provincias Periféricas (Cordillera, Maipo, Melipilla, Talagante, Chacabuco)
+    {"nombre": "Puente Alto", "lat": "-33.6167",
+        "lon": "-70.5833"}, {"nombre": "Pirque", "lat": "-33.6333", "lon": "-70.5500"},
+    {"nombre": "San Jose de Maipo", "lat": "-33.6333",
+        "lon": "-70.3500"}, {"nombre": "San Bernardo", "lat": "-33.5833", "lon": "-70.7000"},
+    {"nombre": "Buin", "lat": "-33.7333", "lon": "-70.7333"}, {
+        "nombre": "Calera de Tango", "lat": "-33.6333", "lon": "-70.7833"},
+    {"nombre": "Paine", "lat": "-33.8167", "lon": "-70.7500"}, {"nombre": "Melipilla",
+                                                                "lat": "-33.6833", "lon": "-71.2167"},
+    {"nombre": "Alhue", "lat": "-34.0333", "lon": "-71.1000"}, {"nombre": "Curacavi",
+                                                                "lat": "-33.4000", "lon": "-71.1500"},
+    {"nombre": "Maria Pinto", "lat": "-33.5167",
+        "lon": "-71.1167"}, {"nombre": "San Pedro", "lat": "-33.9000", "lon": "-71.4667"},
+    {"nombre": "Talagante", "lat": "-33.6667",
+        "lon": "-70.9333"}, {"nombre": "El Monte", "lat": "-33.6833", "lon": "-71.0167"},
+    {"nombre": "Isla de Maipo", "lat": "-33.7500", "lon": "-70.9000"}, {
+        "nombre": "Padre Hurtado", "lat": "-33.5667", "lon": "-70.8167"},
+    {"nombre": "Penaflor", "lat": "-33.6000",
+        "lon": "-70.8833"}, {"nombre": "Colina", "lat": "-33.2000", "lon": "-70.6667"},
+    {"nombre": "Lampa", "lat": "-33.2833", "lon": "-70.8667"}, {"nombre": "Tiltil",
+                                                                "lat": "-33.0833", "lon": "-70.9333"}
 ]
-zoom = "13"  # Zoom 13 abarca más kilómetros cuadrados por cada coordenada
+zoom = "14"
 
 # - - - - - - - - - - - - - - - - - - - - - -
 # Waze Scraper

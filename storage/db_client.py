@@ -140,5 +140,25 @@ class WazePostgresClient:
             print(f"Error obteniendo todos los eventos para ETL: {e}")
             return []
 
+    def calculate_analytics_on_the_fly(self, report_name):
+        """Calcula analíticas pesadas directamente en SQL para comparar latencia."""
+        start_time = time.time()
+        try:
+            with self.conn.cursor() as cur:
+                if report_name == 'by_type':
+                    cur.execute(
+                        "SELECT type, COUNT(*) FROM traffic_events GROUP BY type;")
+                elif report_name == 'by_comuna':
+                    cur.execute(
+                        "SELECT city, COUNT(*) FROM traffic_events GROUP BY city;")
+                elif report_name == 'temporal':
+                    cur.execute(
+                        "SELECT timestamp_scraped::date, city, type, COUNT(*) FROM traffic_events GROUP BY 1, 2, 3;")
+                cur.fetchall()
+        except Exception as e:
+            pass
+        elapsed = (time.time() - start_time) * 1000
+        return elapsed
+
 
 pg_manager = WazePostgresClient()
