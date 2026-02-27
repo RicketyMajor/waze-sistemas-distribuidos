@@ -16,7 +16,7 @@ Thumbs.db
 *.log
 
 *.deb
-*.png
+
 !documentation/*.png
 !modelo_datos.json
 __pycache__/
@@ -29,4 +29,3 @@ __pycache__/
 venv/
 
 results/*.csv
-results/*.png
