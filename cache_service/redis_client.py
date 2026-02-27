@@ -3,20 +3,23 @@ import time
 import json
 import redis
 
-# - - - - - - - - - - - - - - - - - - - - - -
-# Configuration
-# - - - - - - - - - - - - - - - - - - - - - -
+# --------------------------------------------------------------------------
+# Configuración
+# --------------------------------------------------------------------------
 
 REDIS_HOST = os.getenv('REDIS_HOST', 'localhost')
 REDIS_PORT = 6379
 TTL_SECONDS = 60
 
-# - - - - - - - - - - - - - - - - - - - - - -
-# Cache Middleware
-# - - - - - - - - - - - - - - - - - - - - - -
-
+# --------------------------------------------------------------------------
+# Middleware de Caché
+# --------------------------------------------------------------------------
 
 class CacheMiddleware:
+    """
+    Middleware para gestionar la conexión y operaciones con Redis, actuando como
+    una capa de caché para eventos y reportes analíticos.
+    """
     def __init__(self):
         self.client = None
         self.stats = {"hits": 0, "misses": 0, "total_time": 0}
@@ -26,14 +29,13 @@ class CacheMiddleware:
         self._connect_with_retries()
 
     def _connect_with_retries(self):
-        """Attempts to connect to Redis with retries."""
+        """Intenta conectar con Redis con varios reintentos."""
         max_retries = 5
         for i in range(max_retries):
             try:
-                # Attempt to connect
                 self.client = redis.Redis(
                     host=REDIS_HOST, port=REDIS_PORT, decode_responses=True)
-                self.client.ping()  # Ping to validate the connection
+                self.client.ping()
                 print(f"¡Conexión exitosa a Redis en '{REDIS_HOST}'!")
                 return
             except redis.ConnectionError as e:
@@ -47,7 +49,10 @@ class CacheMiddleware:
         print("ERROR: No se pudo conectar a Redis tras varios intentos. El Cache estará DESACTIVADO.")
 
     def get_event(self, event_uuid):
-        """Gets an event from the cache or database."""
+        """
+        Obtiene un evento desde el caché. Si no lo encuentra, incrementa el
+        contador de misses.
+        """
         start_time = time.time()
         result = None
         source = "DB"
@@ -73,7 +78,7 @@ class CacheMiddleware:
         return source, elapsed
 
     def save_to_cache(self, event_uuid, data_dict):
-        """Saves data to the cache."""
+        """Guarda datos en el caché con un TTL (Time To Live) definido."""
         if self.client:
             try:
                 self.client.setex(event_uuid, TTL_SECONDS,
@@ -82,18 +87,16 @@ class CacheMiddleware:
                 print(f"No se pudo guardar en cache: {e}")
 
     def set_analytics(self, report_name, data_list):
-        """Saves analytical reports (Big Data) to the cache without TTL."""
+        """Guarda reportes analíticos en el caché sin TTL."""
         if self.client:
             try:
-                # Usamos el prefijo 'analytics:' para separar la data analítica de la operacional
                 key = f"analytics:{report_name}"
-                # Guardamos la lista de resultados como un string JSON
                 self.client.set(key, json.dumps(data_list))
             except Exception as e:
                 print(f"No se pudo guardar analítica en cache: {e}")
 
     def get_analytics(self, report_name):
-        """Retrieves analytical reports from the cache."""
+        """Obtiene reportes analíticos desde el caché."""
         start_time = time.time()
         result = None
 
@@ -116,7 +119,7 @@ class CacheMiddleware:
         return result, elapsed
 
     def get_metrics(self):
-        """Gets the cache metrics."""
+        """Devuelve las métricas de rendimiento del caché."""
         total = self.stats["hits"] + self.stats["misses"]
         if total == 0:
             return "Sin datos (0 consultas)"

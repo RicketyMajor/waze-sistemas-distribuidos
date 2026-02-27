@@ -2,14 +2,19 @@ import os
 import csv
 from cache_service.redis_client import cache_manager
 
+# --------------------------------------------------------------------------
+# Cargador de Resultados de Pig a Redis
+# --------------------------------------------------------------------------
 
 def load_pig_results_to_redis():
+    """
+    Carga los resultados de los análisis de Pig (Hadoop) desde los archivos
+    de salida a Redis para un acceso rápido.
+    """
     print("--- CARGANDO RESULTADOS ANALÍTICOS DE HADOOP A REDIS ---")
 
-    # Ruta base del volumen compartido donde Pig dejó los archivos
     base_path = '/app/shared_data'
 
-    # Mapeo de los nombres de los reportes con sus respectivos archivos de resultado
     reports = {
         'by_type': f'{base_path}/output_by_type/part-r-00000',
         'by_comuna': f'{base_path}/output_by_comuna/part-r-00000',
@@ -25,13 +30,11 @@ def load_pig_results_to_redis():
         data = []
         try:
             with open(file_path, 'r', encoding='utf-8') as f:
-                # PigStorage(',') guarda los archivos separados por comas
                 reader = csv.reader(f, delimiter=',')
                 for row in reader:
                     data.append(row)
 
             if data:
-                # Usamos nuestra nueva función para guardar la data en Redis
                 cache_manager.set_analytics(report_name, data)
                 print(
                     f"{len(data)} registros cargados a Redis para el reporte 'analytics:{report_name}'")

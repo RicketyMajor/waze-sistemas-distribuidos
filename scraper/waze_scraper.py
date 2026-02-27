@@ -8,9 +8,9 @@ from webdriver_manager.chrome import ChromeDriverManager
 from scraper.data_processor import process_waze_event
 from storage.db_client import pg_manager
 
-# - - - - - - - - - - - - - - - - - - - - - -
-# Zonas de la Región Metropolitana (52 Comunas)
-# - - - - - - - - - - - - - - - - - - - - - -
+# --------------------------------------------------------------------------
+# Zonas de la Región Metropolitana
+# --------------------------------------------------------------------------
 ZONAS_RM = [
     # Provincia de Santiago
     {"nombre": "Santiago", "lat": "-33.4489",
@@ -69,16 +69,18 @@ ZONAS_RM = [
 ]
 zoom = "14"
 
-# - - - - - - - - - - - - - - - - - - - - - -
+# --------------------------------------------------------------------------
 # Waze Scraper
-# - - - - - - - - - - - - - - - - - - - - - -
+# --------------------------------------------------------------------------
 
 
 def get_waze_traffic_data(lat, lon, nombre_zona):
-    """Gets Waze traffic data across multiple zones and stores it in the database."""
+    """
+    Realiza scraping de datos de tráfico de Waze para una zona específica y
+    los almacena en la base de datos PostgreSQL.
+    """
     print(f"--- INICIANDO SCRAPER ZONA: {nombre_zona} (PostgreSQL) ---")
 
-    # Creamos la URL dinámicamente según la zona que pasemos por parámetro
     WAZE_URL = f"https://www.waze.com/es-419/live-map/directions?latlng={lat}%2C{lon}&zoom={zoom}"
 
     chrome_options = Options()
@@ -145,9 +147,9 @@ def get_waze_traffic_data(lat, lon, nombre_zona):
 
     return new_events_count
 
-# - - - - - - - - - - - - - - - - - - - - - -
-# Main
-# - - - - - - - - - - - - - - - - - - - - - -
+# --------------------------------------------------------------------------
+# Bucle Principal de Ejecución
+# --------------------------------------------------------------------------
 
 
 if __name__ == "__main__":
@@ -155,9 +157,8 @@ if __name__ == "__main__":
     try:
         while True:
             for zona in ZONAS_RM:
-                # Llamamos a la función por cada zona
                 get_waze_traffic_data(zona["lat"], zona["lon"], zona["nombre"])
-                time.sleep(5)  # Breve pausa entre zonas para no saturar CPU
+                time.sleep(5)
 
             wait_time = random.randint(15, 30)
             print(
@@ -165,4 +166,4 @@ if __name__ == "__main__":
             time.sleep(wait_time)
 
     except KeyboardInterrupt:
-        print("\nRecolección detenida manualmente.")
+        print("\nRecolección detenida manually.")

@@ -1,5 +1,10 @@
+# --------------------------------------------------------------------------
+# Docker Compose: Definición de Servicios
+# --------------------------------------------------------------------------
 services:
-  # 1. Base de Datos
+  # --------------------------------------------------------------------------
+  # Servicio 1: Base de Datos (PostgreSQL con PostGIS)
+  # --------------------------------------------------------------------------
   db:
     image: postgis/postgis:15-3.3
     container_name: waze_postgres
@@ -18,7 +23,9 @@ services:
       timeout: 5s
       retries: 5
 
-  # 2. Panel Admin SQL
+  # --------------------------------------------------------------------------
+  # Servicio 2: Panel de Administración SQL (pgAdmin)
+  # --------------------------------------------------------------------------
   pgadmin:
     image: dpage/pgadmin4
     container_name: waze_admin_sql
@@ -31,7 +38,9 @@ services:
     depends_on:
       - db
 
-  # 3. Cache Redis
+  # --------------------------------------------------------------------------
+  # Servicio 3: Caché en Memoria (Redis)
+  # --------------------------------------------------------------------------
   cache:
     image: redis:7.0
     container_name: waze_cache
@@ -40,7 +49,9 @@ services:
       - "6379:6379"
     command: ["redis-server", "--maxmemory", "2mb", "--maxmemory-policy", "allkeys-lfu"]
 
-  # 4. Generador de Tráfico (Tu Código Python en Docker)
+  # --------------------------------------------------------------------------
+  # Servicio 4: Aplicación Principal (Generador de Tráfico)
+  # --------------------------------------------------------------------------
   traffic-app:
     build: .
     container_name: waze_traffic_generator
@@ -50,7 +61,7 @@ services:
       cache:
         condition: service_started
     volumes:
-      - ./shared_data:/app/shared_data  # NUEVO: Volumen compartido para pasar datos al procesador Pig
+      - ./shared_data:/app/shared_data
       - ./results:/app/results
     environment:
       - DB_HOST=db
@@ -60,7 +71,9 @@ services:
       - REDIS_HOST=cache
       - REDIS_PORT=6379
 
-  # 5. NUEVO: Procesador Big Data (Apache Pig + Hadoop MapReduce local)
+  # --------------------------------------------------------------------------
+  # Servicio 5: Procesador de Big Data (Apache Pig)
+  # --------------------------------------------------------------------------
   pig-processor:
     build:
       context: .
@@ -68,12 +81,12 @@ services:
     container_name: waze_pig_processor
     restart: always
     volumes:
-      - ./shared_data:/app/shared_data  # Lee los datos que extrae traffic-app
-      - ./processing:/app/processing    # Carpeta donde crearemos los scripts .pig (Fase 3)
+      - ./shared_data:/app/shared_data
+      - ./processing:/app/processing
     depends_on:
       - db
       - cache
     environment:
       - DB_HOST=db
       - REDIS_HOST=cache
-    command: ["tail", "-f", "/dev/null"] # Mantiene el contenedor listo para recibir comandos
+    command: ["tail", "-f", "/dev/null"]

@@ -1,20 +1,21 @@
 import uuid
 from datetime import datetime
 
-# - - - - - - - - - - - - - - - - - - - - - -
-# Data Processing
-# - - - - - - - - - - - - - - - - - - - - - -
+# --------------------------------------------------------------------------
+# Procesador de Datos de Waze
+# --------------------------------------------------------------------------
 
 def process_waze_event(raw_event):
-    """Transforms a raw Waze event into the project's format."""
-    # Identify event type
+    """
+    Transforma un evento crudo de Waze al formato estándar del proyecto,
+    extrayendo y limpiando la información relevante.
+    """
     event_type = raw_event.get('type', 'UNKNOWN')
     subtype = raw_event.get('subType', '')
 
     if 'speed' in raw_event:
         event_type = 'JAM'
 
-    # Extract coordinates
     coords = None
     if 'location' in raw_event:
         waze_loc = raw_event['location']
@@ -26,7 +27,6 @@ def process_waze_event(raw_event):
     if not coords:
         return None
 
-    # Build final object
     processed_event = {
         "event_uuid": str(uuid.uuid4()),
         "waze_uuid": raw_event.get('uuid', raw_event.get('id', 'no-id')),
