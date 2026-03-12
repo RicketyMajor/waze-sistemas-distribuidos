@@ -70,6 +70,8 @@ services:
       - DB_NAME=waze_db
       - REDIS_HOST=cache
       - REDIS_PORT=6379
+      - ELASTICSEARCH_HOST=elasticsearch
+      - ELASTICSEARCH_PORT=9200
 
   # --------------------------------------------------------------------------
   # Servicio 5: Procesador de Big Data (Apache Pig)
@@ -90,3 +92,39 @@ services:
       - DB_HOST=db
       - REDIS_HOST=cache
     command: ["tail", "-f", "/dev/null"]
+
+  # --------------------------------------------------------------------------
+  # Servicio 6: Motor de Búsqueda y Analítica (Elasticsearch)
+  # --------------------------------------------------------------------------
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.10.2
+    container_name: waze_elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false # Desactivado temporalmente para agilizar el desarrollo interno
+      - "ES_JAVA_OPTS=-Xms512m -Xmx768m" # Limitamos RAM para que no mate el contenedor local
+    ports:
+      - "9200:9200"
+    volumes:
+      - ./es_data:/usr/share/elasticsearch/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200 >/dev/null || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # --------------------------------------------------------------------------
+  # Servicio 7: Plataforma de Visualización (Kibana)
+  # --------------------------------------------------------------------------
+  kibana:
+    image: docker.elastic.co/kibana/kibana:8.10.2
+    container_name: waze_kibana
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - "5601:5601"
+    depends_on:
+      elasticsearch:
+        condition: service_healthy
+    restart: always

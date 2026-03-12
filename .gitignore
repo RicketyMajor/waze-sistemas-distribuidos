@@ -29,3 +29,5 @@ __pycache__/
 venv/
 
 results/*.csv
+
+es_data/
