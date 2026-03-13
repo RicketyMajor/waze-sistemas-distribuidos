@@ -30,4 +30,5 @@ venv/
 
 results/*.csv
 
+# Elastic Stack Data
 es_data/
