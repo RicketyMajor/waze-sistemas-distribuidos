@@ -31,18 +31,16 @@ def setup_elasticsearch():
 
     # Mapeo estricto para que Kibana reconozca el campo 'location' como coordenadas en un mapa
     waze_mapping = {
-        "mappings": {
-            "properties": {
-                "location": {"type": "geo_point"},
-                "fecha": {"type": "date", "format": "yyyy-MM-dd"},
-                "@timestamp": {"type": "date"}
-            }
+        "properties": {
+            "location": {"type": "geo_point"},
+            "fecha": {"type": "date", "format": "yyyy-MM-dd"},
+            "@timestamp": {"type": "date"}
         }
     }
 
-    # Crear índice para eventos si no existe
+    # Crear índice para eventos si no existe (Sintaxis actualizada para Elasticsearch 8.x)
     if not es.indices.exists(index="waze_events"):
-        es.indices.create(index="waze_events", body=waze_mapping)
+        es.indices.create(index="waze_events", mappings=waze_mapping)
         print("Índice 'waze_events' creado con mapeo geoespacial.")
 
     # Crear índice para métricas de caché y rendimiento
