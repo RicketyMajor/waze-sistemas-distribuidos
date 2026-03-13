@@ -83,18 +83,12 @@ docker-compose up -d
 python -m scraper/waze_scraper.py
 ```
 
-3. **El Pipeline de Big Data**
-   Ejecuta la limpieza de datos, el procesamiento con Apache Pig y la carga a la memoria caché ultrarrápida.
+3. **Pipeline de Procesamiento y Visualización (End-to-End)**
+   Ejecuta el flujo completo automatizado: limpieza de datos, MapReduce con Apache Pig, carga a memoria caché y envío al motor de búsqueda para visualización.
 
 ```bash
-# 3.1 Limpiar y homogeneizar los datos recolectados
-docker-compose run --rm traffic-app python -m etl.homogenizer
-
-# 3.2 Triturar los datos con MapReduce (Apache Pig)
-docker exec -it waze_pig_processor pig -x local /app/processing/traffic_analysis.pig
-
-# 3.3 Cargar los resultados pesados a la memoria RAM
-docker-compose run --rm traffic-app python -m etl.cache_loader
+# Ejecutar el orquestador completo
+./run_pipeline.sh
 ```
 
 4. **Simulación de Estrés**
